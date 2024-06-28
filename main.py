@@ -1,7 +1,7 @@
 from flask import Flask, request, render_template, url_for, jsonify
 from base_class.base_func import batch_delete_data_func
 
-app = Flask(__name__, static_folder="static", static_url_path="/static")
+app = Flask(__name__, static_folder="static", static_url_path="/sidebar/clean-data/static")
 app.config['JSON_AS_ASCII'] = False
 
 
