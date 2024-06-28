@@ -6,13 +6,13 @@ app.config['JSON_AS_ASCII'] = False
 
 
 ## 前端用户界面，通过前端SDK操作
-@app.route('/', methods=['GET'])
+@app.route('/sidebar/clean-data/', methods=['GET'])
 def index():
   return render_template('index.html')
 
 
 ## 自动化流程接口，通过后端SDK操作
-@app.route('/batch_delete_data', methods=['POST'])
+@app.route('/sidebar/clean-data/batch_delete_data', methods=['POST'])
 def batch_delete_data():
 
   data = request.get_data().decode()
