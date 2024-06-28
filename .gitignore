@@ -1,0 +1,6 @@
+.cache
+.config
+.upm
+venv
+backup
+upload.bat
