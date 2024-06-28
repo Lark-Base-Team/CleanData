@@ -5,3 +5,6 @@
 venv
 backup
 upload.bat
+poetry.lock
+pyproject.toml
+replit.nix

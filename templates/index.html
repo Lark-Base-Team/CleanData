@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>批量数据删除</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/main.css') }}">
+  </head>
+  <body>
+    <script src="https://cdn.bootcss.com/jquery/3.4.1/jquery.min.js"></script>
+    <script  type="module" defer>
+      import { bitable } from "{{ url_for('static', filename='js/js-sdk@0.2.4.min.js') }}";
+           
+      let selection = await bitable.base.getSelection();
+      let baseId = selection.baseId;
+      let tableId = selection.tableId;
+      let viewId = selection.viewId;
+
+      $(function(){
+
+        $(".loading_text").html("正在读取视图和字段信息，请稍等...");
+        $(".loading_page").css("display","block");
+
+        // 分组函数
+        function grouping(array, subGroupLength) {
+          let index = 0;
+          let newArray = [];
+          while (index < array.length) {
+            newArray.push(array.slice(index, index += subGroupLength));
+          }
+          return newArray;
+        }
+
+        $(async () => {
+
+          let tableMetaList = await bitable.base.getTableMetaList();
+          tableMetaList.forEach(async (item) => {
+            if(item.id === tableId) {
+              $("#table_list").append('<option label="'+item.name+'" value="'+item.id+'" selected=""></option>');
+            } else {
+              $("#table_list").append('<option label="'+item.name+'" value="'+item.id+'"></option>');
+            }
+          })
+
+          const table = await bitable.base.getTableById(tableId);
+          const viewMetaList = await table.getViewMetaList();
+          viewMetaList.forEach((item) => {
+            if(item.id === viewId) {
+              $("#view_list").append('<option label="'+item.name+'" value="'+item.id+'" selected=""></option>');
+            } else {
+              $("#view_list").append('<option label="'+item.name+'" value="'+item.id+'"></option>');
+            }
+          })
+
+          let fieldMetaList = await table.getFieldMetaList();
+          fieldMetaList.forEach((item) => {
+            if(item.type === 1 || item.type === 2 || item.type === 3 || item.type === 4 || item.type === 5 || item.type === 7 || item.type === 11 || item.type === 13 || item.type === 15 || item.type === 17 || item.type === 18 || item.type === 21 || item.type === 22 || item.type === 23) {
+              $("#field_list").append('<option label="'+item.name+'" data-name="'+item.name+'" value="'+item.id+'"></option>');
+            }
+          })
+
+          $(".loading_page").css("display","none");
+
+
+          $("#table_list").change(async function() {
+            $(".loading_text").html("正在读取视图和字段信息，请稍等...");
+            $(".loading_page").css("display","block");
+
+            tableId = $("#table_list")[0].value;
+            $("#view_list").html("");
+            const table = await bitable.base.getTableById(tableId);
+            const viewMetaList = await table.getViewMetaList();
+            viewMetaList.forEach((item) => {
+              if(item.id === viewId) {
+                $("#view_list").append('<option label="'+item.name+'" value="'+item.id+'" selected=""></option>');
+              } else {
+                $("#view_list").append('<option label="'+item.name+'" value="'+item.id+'"></option>');
+              }
+            })
+
+            /*
+            Text = 1,
+            Number = 2,
+            SingleSelect = 3,
+            MultiSelect = 4,
+            DateTime = 5,
+            Checkbox = 7,
+            User = 11,
+            Phone = 13,
+            Url = 15,
+            Attachment = 17,
+            SingleLink = 18,
+            Lookup = 19,
+            Formula = 20,
+            DuplexLink = 21,
+            Location = 22,
+            GroupChat = 23,
+            //*/
+
+            $("#field_list").html("");
+            fieldMetaList = await table.getFieldMetaList();
+            fieldMetaList.forEach((item) => {
+              if(item.type === 1 || item.type === 2 || item.type === 3 || item.type === 4 || item.type === 5 || item.type === 7 || item.type === 11 || item.type === 13 || item.type === 15 || item.type === 17 || item.type === 18 || item.type === 21 || item.type === 22 || item.type === 23) {
+                $("#field_list").append('<option label="'+item.name+'" data-name="'+item.name+'" value="'+item.id+'"></option>');
+              }
+            })
+            $(".loading_page").css("display","none");
+          })
+
+          // 点击删除按钮
+          $(".btn_delete").click(async function() {
+            tableId = $("#table_list")[0].value;
+            viewId = $("#view_list")[0].value;
+            const table = await bitable.base.getTableById(tableId);
+            const view = await table.getViewById(viewId);
+            const recordIdList = await view.getVisibleRecordIdList();
+            // console.log(recordIdList);
+            var new_recordIdList = grouping(recordIdList, 5000);
+            // console.log(new_recordIdList);
+
+            // 获取select元素的options属性
+            const options = document.querySelector('#field_list').options
+            const selectedValueArr = []
+            for (let i = 0; i < options.length; i++) {
+                // 如果该option被选中，则将它的value存入数组
+                if (options[i].selected) {
+                    selectedValueArr.push(options[i].value)
+                }
+            }
+            // console.log(selectedValueArr)
+
+            let cols_count = "";
+            if (selectedValueArr.length === 0) {
+              cols_count = await table.getFieldList();
+              cols_count = cols_count.length;
+            } else {
+              cols_count = selectedValueArr.length;
+            }
+
+            // console.log(cols_count);
+
+            var returned=window.confirm(`\n将删除 ` + cols_count + ` 列 ` + recordIdList.length + ` 条记录\n\n是否继续删除？`);  
+            if(returned){
+              $(".loading_text").html("正在删除视图中的数据，请稍等...");
+              $(".loading_page").css("display","block");
+
+              if (selectedValueArr.length === 0) { // 如未选择任何字段，执行对整个数据表的清空
+
+                for (let i = 0; i < new_recordIdList.length; i++) {
+                  await table.deleteRecords(new_recordIdList[i]);
+                }
+
+              }  else {  // 当选择了字段，只执行对选择字段的清除
+
+                let update_recordsList = [];
+                let update_fieldsList = {};
+                for (let i = 0; i < new_recordIdList.length; i++) {
+                  for (let j = 0; j < new_recordIdList[i].length; j++) {
+                    selectedValueArr.forEach((fieldId_item) => {
+                      update_fieldsList[fieldId_item] = null;
+                    })
+                    update_recordsList.push({ recordId: new_recordIdList[i][j], fields: update_fieldsList });
+                  }
+                  await table.setRecords(update_recordsList);
+
+                  update_recordsList = [];
+                }
+              }
+            } else {
+                return;
+            }
+            $(".loading_page").css("display","none");
+          }); 
+
+        });
+        
+        // 点击设置页面的关闭按钮隐藏设置页面
+        $(".btn_setup").click(function() {
+          $(".setup_page").hide();
+        });
+
+        // 点击设置页面的生成按钮生成自动化流程的HTTP请求参数
+        $(".btn_generate").click(function() {
+
+          tableId = $("#table_list")[0].value;
+          viewId = $("#view_list")[0].value;
+
+          // 获取select元素的options属性
+          const options = document.querySelector('#field_list').options
+          const selectedValueArr = []
+          for (let i = 0; i < options.length; i++) {
+              // 如果该option被选中，则将它的name存入数组
+              if (options[i].selected) {
+                  selectedValueArr.push(options[i].dataset['name'])
+              }
+          }
+          // console.log(selectedValueArr)
+          if(selectedValueArr === ""){
+            selectedValueArr = [];
+          }
+          const base_token = $("#base_token")[0].value;
+
+          if(base_token === '') {
+            alert("请输入多维表格授权码");
+            return;
+          }
+
+          const html_str = `请求方法：POST\n请求URL：` + location.href + `batch_delete_data\n请求体：\nRAW\n{
+  "APP_TOKEN":"` + baseId + `",
+  "PERSONAL_BASE_TOKEN":"` + base_token + `",
+  "TABLE_ID":"` + tableId + `",
+  "VIEW_ID":"` + viewId + `",
+  "FIELD_NAME_LIST":` + JSON.stringify(selectedValueArr) + `
+}`
+          $(".parameter").html(html_str);
+          localStorage.setItem("parameter_" + baseId + "_" + tableId, html_str);
+          localStorage.setItem("base_token_" + baseId + "_" + tableId, base_token);
+        });
+
+      });
+          
+      $(".parameter").html(localStorage.getItem("parameter_" + baseId + "_" + tableId));
+      $(".base_token")[0].value = localStorage.getItem("base_token_" + baseId + "_" + tableId);
+
+    </script>
+    
+    <div id="main">
+
+      <div class="main_page">
+        
+        <span id="table_tilte"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" data-icon="SheetBitableOutlined"><path d="M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm2 0v16h16V4H4Z" fill="currentColor"></path><path d="M12.5 7a1 1 0 1 0 0 2H17a1 1 0 1 0 0-2h-4.5ZM6 8a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm6.5 3a1 1 0 1 0 0 2H17a1 1 0 1 0 0-2h-4.5ZM6 12a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm6.5 3a1 1 0 1 0 0 2H17a1 1 0 1 0 0-2h-4.5ZM6 16a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Z" fill="currentColor"></path></svg>&nbsp;数据表&nbsp;
+          <img src="{{ url_for('static', filename='img/setup.png') }}"  onclick="javascript:$('.setup_page').show()" title="生成自动化流程链接与参数">
+        </span>
+        <div class="main_form">
+          <select name="table_list" class="table_list" id="table_list">
+          </select>
+        </div>
+        
+        <span id="view_title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" data-icon="BitablegridOutlined"><path d="M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm7.5 0v4H20V4H9.5Zm0 6v4H20v-4H9.5Zm-2 4v-4H4v4h3.5ZM4 16v4h3.5v-4H4Zm5.5 0v4H20v-4H9.5Zm-2-12H4v4h3.5V4Z" fill="currentColor"></path></svg>&nbsp;视图（删除选择视图中的所有数据）</span>
+        <div class="main_form">
+          <select name="view_list" class="view_list" id="view_list">
+          </select>
+        </div>
+        
+        <span id="field_tilte"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" data-icon="GanttsetOutlined"><path d="M4 4h16v7h2V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8v-2H4V4Z" fill="currentColor"></path><path d="M15.5 21.425a.552.552 0 0 1-.507-.211 4.672 4.672 0 0 1-.675-1.296.553.553 0 0 1 .084-.5l.408-.56a.963.963 0 0 0 0-1.134l-.345-.474a.553.553 0 0 1-.077-.523c.193-.5.47-.963.82-1.369a.553.553 0 0 1 .482-.18l.539.058a.962.962 0 0 0 .986-.57l.22-.503a.552.552 0 0 1 .398-.328 4.59 4.59 0 0 1 1.588-.024c.186.03.339.158.414.33l.23.524a.963.963 0 0 0 .987.571l.64-.07c.18-.02.361.043.48.18.329.378.594.807.787 1.27a.553.553 0 0 1-.073.535l-.417.573a.962.962 0 0 0 0 1.133l.483.664a.55.55 0 0 1 .08.514 4.673 4.673 0 0 1-.643 1.191.552.552 0 0 1-.507.21l-.83-.09a.963.963 0 0 0-.988.57l-.35.8a.552.552 0 0 1-.43.334 4.6 4.6 0 0 1-1.312-.02.552.552 0 0 1-.414-.33l-.343-.784a.963.963 0 0 0-.987-.57l-.727.08Zm3.196-1.449c.85 0 1.54-.696 1.54-1.555 0-.86-.69-1.556-1.54-1.556-.851 0-1.54.696-1.54 1.556 0 .859.689 1.555 1.54 1.555ZM6.5 11a1 1 0 1 0 0 2H14a1 1 0 1 0 0-2H6.5ZM9 8a1 1 0 0 1 1-1h7a1 1 0 1 1 0 2h-7a1 1 0 0 1-1-1Zm-1 7a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2H8Z" fill="currentColor"></path></svg>&nbsp;字段（不选择则清空视图，Ctrl+点击多选）</span>
+        <div class="main_form">
+          <select name="field_list" class="field_list" id="field_list" multiple="multiple" style="height: 200px;">
+          </select>
+        </div>
+
+        <div class="btn_submit">
+          <input type="button" id="btn_delete" value="删除" class="btn_delete" >
+        </div>
+      </div>
+        
+      <div class="setup_page">
+        <span>多维表格授权码</span>
+        <input type="text" id="base_token" class="base_token" value="">
+
+        <div class="btn_submit">
+          <input type="button" id="btn_generate" value="生成自动化流程链接与参数" class="btn_generate" >
+        </div>
+
+        <textarea type="text" id="parameter" value="" class="parameter" disabled="disabled"></textarea>
+
+        <div class="btn_submit">
+          <input type="button" id="btn_setup" value="返回" class="btn_setup" >
+        </div>
+      </div>
+        
+      <div class="loading_page">
+        <div class=loading_text id="loading_text">正在加载数据，请稍等...</div>
+      </div>
+        
+    </div>
+  </body>
+</html>
