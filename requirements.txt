@@ -1,0 +1,2 @@
+baseopensdk==0.0.13
+Flask==3.0.3
